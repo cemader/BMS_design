@@ -27,7 +27,7 @@ setwd("C:/Users/maderc/Documents/BMS/Manitoba_selection")
 #load("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Monitoring Strategy\\BMS design test\\Test_Design_largeN.RData")
 #setwd("C:/Users/vwilgs/Documents/BOREAL POSITION/Projects/Saskatchewan Breeding Bird Atlas/Boreal Site Selection/")
 
-
+N <- 400
 
 ###################################################################################################################################
 ##########################################          IMPORT THE SAMPLING FRAME            ##########################################
