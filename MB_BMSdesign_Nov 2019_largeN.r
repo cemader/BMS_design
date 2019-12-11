@@ -442,8 +442,8 @@ DesignID="ET_ID",
 type.frame="area",
 src.frame="shapefile",
 in.shape="Sample_Frame",
-att.frame=attframe,
-stratum="Ecoregion",
+att.frame="attframe",
+stratum="REGION_NAM",
 mdcaty="mdcaty",
 shapefile=TRUE,
 out.shape=paste0("Full_BMS_design", i)) 
@@ -495,6 +495,8 @@ save.image("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Moni
 
 # DESIGN 4: SPATIAL BALANCE ONLY ------------------------------------------
 attframe <- read.dbf("Sample_Frame")
+attframe <-read_sf("Sample_Frame.shp")
+
 summary(attframe$p)
 
 
