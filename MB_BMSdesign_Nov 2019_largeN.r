@@ -5,7 +5,6 @@ library(maptools)
 library(rgeos)
 library(raster)
 library(car)
-
 library(sf)
 library(raster)
 library(tidyverse)
@@ -27,7 +26,7 @@ setwd("C:/Users/maderc/Documents/BMS/Manitoba_selection")
 #load("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Monitoring Strategy\\BMS design test\\Test_Design_largeN.RData")
 #setwd("C:/Users/vwilgs/Documents/BOREAL POSITION/Projects/Saskatchewan Breeding Bird Atlas/Boreal Site Selection/")
 
-N <- 400
+
 
 ###################################################################################################################################
 ##########################################          IMPORT THE SAMPLING FRAME            ##########################################
@@ -44,11 +43,11 @@ LCCC10 <- raster("C:/Users/maderc/Documents/BMS/Manitoba_selection/NA_LandCover_
 hexagons <- spTransform(hexagons, crs(LCCC10)) #transform to be in same projection as raster
 
 
-plot(hexagons, col=hexagons$Min_Cost)
+#plot(hexagons, col=hexagons$Min_Cost) takes needless time
 hexagons$cost_prob<-1/sqrt(hexagons$Min_Cost)
 
 
-writeOGR(hexagons, "C:/Users/maderc/Documents/BMS/Manitoba_selection", "hexagons3", driver = "ESRI Shapefile")
+writeOGR(hexagons, "C:/Users/maderc/Documents/BMS/Manitoba_selection", "hexagons", driver = "ESRI Shapefile", overwrite = TRUE)
 
 ## now use the final_hexagons to clip lccc10 raster
 # read in lccc10 file
@@ -58,7 +57,7 @@ writeOGR(hexagons, "C:/Users/maderc/Documents/BMS/Manitoba_selection", "hexagons
 #################-------------     Temporarily replaced with the following load of dataset, because mask() takes around 45 minutes
 
 MB.rast <- raster("C:/Users/maderc/Documents/BMS/Manitoba_selection/MB.rast.tif")
-plot(MB.rast)
+#plot(MB.rast)
 
 #MB.rast <- crop(LCCC10,as(hexagons,"Spatial")) # LCCC raster for MB only
 #MB.rast <- mask(MB.rast,hexagons,"Spatial", overwrite = TRUE)
@@ -277,7 +276,7 @@ SLU <- reclassify(SLU,eco.mat) # new raster with pixel hab prob
 
 
 
-HabProbraster <- raster::merge(AP,BT, CHBL, CRU, HBL, HRU,ILP,KRU,LMP,LSU,LW,MBL,MBU,MRU,SLU, tolerance = 0.1)
+HabProbraster <- raster::merge(AP,BT, CHBL, CRU, HBL, HRU,ILP,KRU,LMP,LSU,LW,MBL,MBU,MRU,SLU, tolerance = 0.1) #DOESN'T TAKE LONG
 plot(HabProbraster)
 
 
@@ -285,9 +284,15 @@ plot(HabProbraster)
 
 ##############################################################################################################
 ############################# Add hab prob and cost prob to NL hexagon layer ##################################
-eco.hab.hex <- raster::extract(HabProbraster,hexagons,fun=sum,na.rm=TRUE,df=TRUE,sp=TRUE) # new hexagon file with hab probs
+
+#eco.hab.hex <- raster::extract(HabProbraster,hexagons,fun=sum,na.rm=TRUE,df=TRUE,sp=TRUE) # Takes a long time. new hexagon file with hab probs
+#writeOGR(eco.hab.hex, "C:/Users/maderc/Documents/BMS/Manitoba_selection", "ecohabhex", driver = "ESRI Shapefile") #Wrote in new shapefile, temporarily replaced this step with load
+
+eco.hab.hex<-readOGR("ecohabhex.shp", p4s= laea.proj)
 
 hexagons$hab_prob<-eco.hab.hex@data$layer
+
+
 
 ###### CALCULATE THE INCLUSION PROBABILITY
 ###### NOTE 1: The variable Balanced is the habitat based inclusion probabilities for Balanced draw (weighted in Mahon parlance) 
@@ -308,7 +313,7 @@ rm(eco.hab.hex)
 
 ##### Target sample sizes
 #samplesize<-c(57,20,34,67,12,11,1,11)  # target sample sizes for priority squares
-samplesize<-c(113,40,68,133,23,22,1,22)  # target sample sizes for priority squares BASED on N=400
+samplesize<-c(3,1,70,24,95,44,36,16,50,1,14,56,15,1,77)  # CODE TEST PLACEHOLDER #### target sample sizes for priority squares BASED on N=400  
 Ecoregion<-c("Aspen Parkland","Boreal Transition","Coastal Hudson Bay Lowland","Churchill River Upland",
              "Hudson Bay Lowland", "Hayes River Upland","Interlake Plain","Kazan River Upland", "Lake Manitoba Plain", 
              "Lac Seul Upland", "Lake of the Woods", "Mid-Boreal Lowland","Mid-Boreal Uplands","Maguse River Upland",
@@ -369,7 +374,7 @@ writeSpatialShape(hexagons, "Sample_Frame")
 frame <- hexagons
 
 
-#set.seed(3911548)  # Set seed 
+set.seed(3911548)  # Set seed 
 # create mdcaty.  keeps variable it is based on in output in addition to mdcaty.  useful sometimes
 # also want sum of inclusion probabilities to sum to expected sample size.
 attframe <- read.dbf("Sample_Frame")
@@ -377,6 +382,7 @@ summary(attframe$p)
 
 
 attframe$mdcaty <- N * attframe$p/sum(attframe$p)  
+hexagons$mdcaty <- attframe$mdcaty
 sum(attframe$mdcaty)
 
 
@@ -384,146 +390,6 @@ sum(attframe$mdcaty)
 ###  SPECIFY THE STRATIFIED SAMPLING DESIGN
 oversample.size = 1 ### 2x oversample
 
-
-# DESIGN 1: COST ONLY -----------------------------------------------------
-attframe$mdcaty <- N * attframe$cost_prob/sum(attframe$cost_prob) # Keep p standardized by N
-
-# NO OVERSAMPLE because just testing the design with Panel one
-Stratdsgn <- list("Athabasca Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Athabasca Plain")$samplesize), over=0, seltype="Continuous"),
-   "Churchill River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize), over=0, seltype="Continuous"),
-   "Mid-Boreal Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Lowland")$samplesize), over=0,seltype="Continuous"),
-   "Mid-Boreal Uplands"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Uplands")$samplesize), over=0,seltype="Continuous"),
-   "Selwyn Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize*oversample.size,0),seltype="Continuous"),
-   "Tazin Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Tazin Lake Upland")$samplesize), over=0,seltype="Continuous"),
-   "Boreal Transition"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Boreal Transition")$samplesize), over=0,seltype="Continuous")
-)
-Stratdsgn
-
-n.simulations=100 #### run 100 random draws
-cost.samp<-list() ###
-
-for (i in 1:n.simulations){
-cost.samp[i] <- grts(design=Stratdsgn,
-DesignID="ET_ID",
-type.frame="area",
-src.frame="shapefile",
-in.shape="Sample_Frame",
-att.frame=attframe,
-stratum="Ecoregion",
-mdcaty="mdcaty",
-shapefile=TRUE,
-out.shape="Cost_design") 
-}
-
-
-cost.est<-rep (NA, length(cost.samp))
- for (i in 1:length(cost.samp)){
-   cost.est[[i]] <- sum(cost.samp[[i]]$Cost)
-}
-
-sp.balance<-rep (NA, length(cost.samp))
- for (i in 1:length(cost.samp)){
-   sp.balance[[i]] <- as.matrix(unlist(spbalance(cost.samp[[i]], frame, tess_ind = F, sbc_ind = T)$sbc$J_subp))[1,1] 
-}
-
-
-hab = list()
-
-for (i in 1:length(cost.samp)) {
-    # ... make some data
-    dat <- data.frame(VALUE_1= sum(cost.samp[[i]]@data$VALUE_1),VALUE_2= sum(cost.samp[[i]]@data$VALUE_2),VALUE_5= sum(cost.samp[[i]]@data$VALUE_5),VALUE_6= sum(cost.samp[[i]]@data$VALUE_6),VALUE_8= sum(cost.samp[[i]]@data$VALUE_8),VALUE_10= sum(cost.samp[[i]]@data$VALUE_10),VALUE_14= sum(cost.samp[[i]]@data$VALUE_14),VALUE_15= sum(cost.samp[[i]]@data$VALUE_15),VALUE_16= sum(cost.samp[[i]]@data$VALUE_16),VALUE_17= sum(cost.samp[[i]]@data$VALUE_17),VALUE_18= sum(cost.samp[[i]]@data$VALUE_18))
-    dat$i <- i  # maybe you want to keep track of which iteration produced it?
-    hab[[i]] <- dat # add it to your list
-}
-habitat = do.call(rbind, hab)
-
-
-Design.data.cost.draw<-data.frame(Design=rep("Cost only", length(cost.est)), Cost=cost.est, Spatial.Balance= sp.balance)
-Design.data.cost.draw<-data.frame(Design.data.cost.draw, habitat)
-Design.data.cost.draw
-save.image("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Monitoring Strategy\\BMS design test\\Test_Design_largeN.RData")
-
-
-#### STRATIFIED DESIGN WITH THE USE OF INCLUSION PROBABILITIES
-
-
-# DESIGN 2: HABITAT ONLY --------------------------------------------------
-
-attframe$mdcaty <- N * attframe$hab_prob/sum(attframe$hab_prob)
-
-# NO OVERSAMPLE because just testing the design with Panel one
-Stratdsgn <- list("Athabasca Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Athabasca Plain")$samplesize), over=0, seltype="Continuous"),
-  "Churchill River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize), over=0, seltype="Continuous"),
-  "Mid-Boreal Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Lowland")$samplesize), over=0,seltype="Continuous"),
-  "Mid-Boreal Uplands"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Uplands")$samplesize), over=0,seltype="Continuous"),
-  "Selwyn Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize*oversample.size,0),seltype="Continuous"),
-  "Tazin Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Tazin Lake Upland")$samplesize), over=0,seltype="Continuous"),
-  "Boreal Transition"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Boreal Transition")$samplesize), over=0,seltype="Continuous")
-)
-Stratdsgn
-#  "Interlake Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Interlake Plain")$samplesize), over=0,seltype="Continuous"),
-
-#Stratdsgn <- list("Athabasca Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Athabasca Plain")$samplesize), over=round(subset(sample.size, Ecoregion=="Athabasca Plain")$samplesize*oversample.size,0), seltype="Continuous"),
-#  "Churchill River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize*oversample.size,0), seltype="Continuous"),
-#  "Mid-Boreal Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Lowland")$samplesize), over=round(subset(sample.size, Ecoregion=="Mid-Boreal Lowland")$samplesize*oversample.size,0),seltype="Continuous"),
-#  "Mid-Boreal Uplands"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Uplands")$samplesize), over=round(subset(sample.size, Ecoregion=="Mid-Boreal Uplands")$samplesize*oversample.size,0),seltype="Continuous"),
-#  "Selwyn Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize*oversample.size,0),seltype="Continuous"),
-#  "Tazin Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Tazin Lake Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Tazin Lake Upland")$samplesize*oversample.size,0),seltype="Continuous"),
-#  "Interlake Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Interlake Plain")$samplesize), over=round(subset(sample.size, Ecoregion=="Interlake Plain")$samplesize*oversample.size,0),seltype="Continuous"),
-#  "Boreal Transition"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Boreal Transition")$samplesize), over=round(subset(sample.size, Ecoregion=="Boreal Transition")$samplesize*oversample.size,0),seltype="Continuous")
-#)
-#Stratdsgn
-
-
-
-n.simulations=100 #### run 100 random draws
-hab.samp<-list() ###
-
-for (i in 1:n.simulations){
-hab.samp[i] <- grts(design=Stratdsgn,
-DesignID="ET_ID",
-type.frame="area",
-src.frame="shapefile",
-in.shape="Sample_Frame",
-att.frame=attframe,
-stratum="Ecoregion",
-mdcaty="mdcaty",
-shapefile=TRUE,
-out.shape="Habitat_design") 
-}
-save.image("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Monitoring Strategy\\BMS design test\\Test_Design_largeN.RData")
-
-
-
-#### get cost estimates from the draws (above)
-cost.est<-rep (NA, length(hab.samp))
-for (i in 1:length(hab.samp)){
-  cost.est[[i]] <- sum((hab.samp[[i]])$Cost)
-}
-
-sp.balance<-rep (NA, length(hab.samp))
-for (i in 1:length(hab.samp)){
-  sp.balance[[i]] <- as.matrix(unlist(spbalance(hab.samp[[i]], frame, tess_ind = F, sbc_ind = T)$sbc$J_subp))[1,1] 
-}
-
-
-
-hab = list()
-for (i in 1:length(hab.samp)) {
-    # ... make some data
-    dat <- data.frame(VALUE_1= sum(hab.samp[[i]]@data$VALUE_1),VALUE_2= sum(hab.samp[[i]]@data$VALUE_2),VALUE_5= sum(hab.samp[[i]]@data$VALUE_5),VALUE_6= sum(hab.samp[[i]]@data$VALUE_6),VALUE_8= sum(hab.samp[[i]]@data$VALUE_8),VALUE_10= sum(hab.samp[[i]]@data$VALUE_10),VALUE_14= sum(hab.samp[[i]]@data$VALUE_14),VALUE_15= sum(hab.samp[[i]]@data$VALUE_15),VALUE_16= sum(hab.samp[[i]]@data$VALUE_16),VALUE_17= sum(hab.samp[[i]]@data$VALUE_17),VALUE_18= sum(hab.samp[[i]]@data$VALUE_18))
-    dat$i <- i  # maybe you want to keep track of which iteration produced it?
-    hab[[i]] <- dat # add it to your list
-}
-
-habitat = do.call(rbind, hab)
-
-
-
-Design.data.habitat.draw<-data.frame(Design=rep("Habitat only", length(cost.est)), Cost=cost.est, Spatial.Balance= sp.balance)
-Design.data.habitat.draw<-data.frame(Design.data.habitat.draw, habitat)
-Design.data.habitat.draw
-save.image("C:\\Users\\vwilgs\\Documents\\BOREAL POSITION\\Projects\\Boreal Monitoring Strategy\\BMS design test\\Test_Design_largeN.RData")
 
 ################### RESTART HERE
 # DESIGN 3: FULL BMS DESIGN -----------------------------------------------------
@@ -533,14 +399,22 @@ attframe$mdcaty <- N * attframe$p/sum(attframe$p)
 
 #### STRATIFIED DESIGN WITH THE USE OF INCLUSION PROBABILITIES
 # NO OVERSAMPLE because just testing the design with Panel one
-Stratdsgn <- list("Athabasca Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Athabasca Plain")$samplesize), over=0, seltype="Continuous"),
-  "Churchill River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize), over=0, seltype="Continuous"),
+Stratdsgn <- list("Aspen Parkland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Aspen Parkland")$samplesize), over=0, seltype="Continuous"),
+  "Boreal Transition"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Boreal Transition")$samplesize), over=0, seltype="Continuous"),
+  "Coastal Hudson Bay Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Coastal Hudson Bay Lowland")$samplesize), over=0,seltype="Continuous"),
+  "Churchill River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Churchill River Upland")$samplesize), over=0,seltype="Continuous"),
+  "Hudson Bay Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Hudson Bay Lowland")$samplesize), over=0,seltype="Continuous"),
+  "Hayes River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Hayes River Upland")$samplesize), over=0,seltype="Continuous"),
+  "Interlake Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Interlake Plain")$samplesize), over=0,seltype="Continuous"),
+  "Kazan River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Kazan River Upland")$samplesize), over=0,seltype="Continuous"),
+  "Lake Manitoba Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Lake Manitoba Plain")$samplesize), over=0,seltype="Continuous"),
+  "Lac Seul Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Lac Seul Upland")$samplesize), over=0,seltype="Continuous"),
+  "Lake of the Woods"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Lake of the Woods")$samplesize), over=0,seltype="Continuous"),
   "Mid-Boreal Lowland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Lowland")$samplesize), over=0,seltype="Continuous"),
   "Mid-Boreal Uplands"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Mid-Boreal Uplands")$samplesize), over=0,seltype="Continuous"),
-  "Selwyn Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize), over=round(subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize*oversample.size,0),seltype="Continuous"),
-  "Tazin Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Tazin Lake Upland")$samplesize), over=0,seltype="Continuous"),
-  "Boreal Transition"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Boreal Transition")$samplesize), over=0,seltype="Continuous")
-)
+  "Maguse River Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Maguse River Upland")$samplesize), over=0,seltype="Continuous"),
+  "Selwyn Lake Upland"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Selwyn Lake Upland")$samplesize), over=0,seltype="Continuous")
+  )
 Stratdsgn
 
 #  "Interlake Plain"=list(panel=c(PanelOne=subset(sample.size, Ecoregion=="Interlake Plain")$samplesize), over=0,seltype="Continuous"),
@@ -557,7 +431,7 @@ Stratdsgn
 #Stratdsgn
 
 
-n.simulations=100 #### run 100 random draws
+n.simulations=3 #### run 100 random draws
 full.design.samp<-list() ###
 
 
@@ -586,7 +460,7 @@ out.shape=paste0("Full_BMS_design", i))
 #mdcaty="mdcaty",
 #shapefile=TRUE,
 #out.shape="Full_BMS_design") 
-}
+#}
 
 
 #### get cost estimates from the draws (above)
